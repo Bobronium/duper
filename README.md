@@ -4,9 +4,16 @@
 
 Library for building fast and reusable copying factories for python objects.
 
-Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries to be _the_ library used to copy objects within same Python process.
+Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries, becoming the go-to library for copying objects within the same Python process.
 
------
+---
+
+### Why?
+It is challenging and fun, of course.
+
+But if I'm being serious, deepcopy is [extremely slow](https://stackoverflow.com/questions/24756712/deepcopy-is-extremely-slow) and there's [no alternative](https://stackoverflow.com/questions/1410615/copy-deepcopy-vs-pickle) that is both faster **and** can replace deepcopy in all cases.
+
+
 
 ### Keypoints
 - Generates a cook-book to reconstruct given object
