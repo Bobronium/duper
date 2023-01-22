@@ -1,0 +1,193 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "duper"
+description = ''
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = []
+authors = [
+  { name = "Bobronium", email = "appkiller16@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "typing_extensions; python_version < '3.11'",
+    "mypy-extensions",
+]
+dynamic = ["version"]
+
+
+[tool.hatch.dirs.env]
+virtual = ".hatch"
+#path = "./.venv_{env_name}"
+
+
+[project.optional-dependencies]
+dev = ["astpretty", "bytecode"]
+benchmark = ["pyinstrument", "ipython", "dill", "orjson"]
+typing = ["mypy"]
+profiling = ["pyinstrument"]
+debugging = ["ipython"]
+style = ["ruff", "black", "isort", "pyupgrade"]
+testing = ["pytest", "pytest-cov"]
+
+[project.urls]
+Documentation = "https://github.com/Bobronium/duper#readme"
+Issues = "https://github.com/Bobronium/duper/issues"
+Source = "https://github.com/Bobronium/duper"
+
+[tool.hatch.version]
+path = "duper/__about__.py"
+
+
+[tool.hatch.envs.default]
+path = ".venv"
+features = ["benchmark", "lint", "test", "build"]
+
+
+[tool.hatch.envs.311]
+path = ".venv_311"
+python = "3.11"
+features = ["benchmark", "lint", "test", "build"]
+
+dependencies = [
+  "pytest",
+  "pytest-cov",
+]
+
+[tool.hatch.envs.test]
+features = ["testing"]
+
+
+[tool.hatch.envs.test.scripts]
+version = "python --version"
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=duper --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+
+
+[tool.hatch.envs.style]
+features = ["style"]
+
+[tool.hatch.envs.types]
+features = ["typing"]
+
+[tool.hatch.envs.types.scripts]
+check = [
+  "mypy {env:PACKAGE}",
+]
+
+[tool.hatch.envs.default.env-vars]
+PACKAGE = "{root}/duper"
+TESTS = "{root}/tests"
+SOURCES = "{root}/tests {root}/duper"
+
+
+[tool.hatch.envs.style.scripts]
+# hatch run is pretty slow and it doesn't feel good to use it
+# TODO: fix this or find a snapier alternative
+check = [
+  "ruff {env:SOURCES}",
+  "black --check {args} {env:SOURCES}",
+  "isort --check-only {args} {env:SOURCES}",
+]
+# Relatively safe operation that shouldn't break anything.
+fmt = [
+  "isort {env:SOURCES}",
+  "black {env:SOURCES}",
+]
+# fmt + auto fixes. Potentially can lead to unwanted changes.
+fix = [
+    "pyupgrade --py310-plus --exit-zero-even-if-changed {env:PACKAGE}/**/*.py {env:PACKAGE}/*.py",
+    "ruff {env:SOURCES} --fix",
+    "fmt",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+  "duper/__about__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.isort]
+force_single_line = true
+lines_after_imports = 2
+line_length = 100
+profile = "black"
+
+[tool.black]
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+ignore = ["E501"]
+
+
+[tool.mypy]
+# are these possible to comply with?
+# disallow_any_expr = true
+# disallow_any_explicit = true
+
+disallow_any_unimported = true
+disallow_any_decorated = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+
+# Untyped definitions and calls
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+
+# None and Optional handling
+no_implicit_optional = true
+strict_optional = true
+
+# Configuring warnings
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+warn_incomplete_stub = true
+warn_unused_configs = true
+
+# Suppressing errors
+ignore_errors = false
+enable_error_code = "ignore-without-code"
+
+# Miscellaneous strictness flags
+allow_untyped_globals = false
+allow_redefinition = false
+local_partial_types = false
+implicit_reexport = false
+strict_equality = true
+strict = true
+no_silence_site_packages = true
+
+# Configuring error messages
+show_error_context = false
+show_column_numbers = false
+show_error_codes = true
+color_output = true
+error_summary = true

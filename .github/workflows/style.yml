@@ -1,0 +1,33 @@
+name: style
+
+on:
+  push:
+    branches: [main, poc, pub]
+  pull_request:
+    branches: [main, poc, pub]
+
+concurrency:
+  group: style-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  check:
+    name: Style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python "3.11"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Hatch
+        run: pip install --upgrade hatch
+
+      - name: Run check
+        run: hatch run style:check

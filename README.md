@@ -115,3 +115,5 @@ Though the library is in an early development stage, it already outperforms all 
 I am completing the implementation and exploring new and validating existing ideas to improve performance. 
 
 My current priority is to speed up the initial build of the copying factory. It is currently slightly slower than deepcopy in most cases.
+
+If you're interested in this project, you can contact me via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
