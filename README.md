@@ -1,10 +1,16 @@
 # duper
 
-[🚧 Status](#-status)
-
 Library for building fast and reusable copying factories for python objects.
 
 Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries, becoming the go-to library for copying objects within the same Python process.
+
+![timesup_duper_demo](https://user-images.githubusercontent.com/36469655/215218569-1f833d77-d974-49ab-98cf-a03d9ab32899.gif)
+
+
+### 🚧 Project is in development
+There's no source code available yet.
+
+If you have any feedback or ideas, you can [open the issue](https://github.com/Bobronium/duper/issues), or  contact me directly via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
 
 ---
 
@@ -109,5 +115,3 @@ Though the library is in an early development stage, it already outperforms all 
 I am completing the implementation and exploring new and validating existing ideas to improve performance. 
 
 My current priority is to speed up the initial build of the copying factory. It is currently slightly slower than deepcopy in most cases.
-
-If you're interested in this project, you can contact me via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
