@@ -76,8 +76,8 @@ class Duper(Generic[T]):
     Allows to define dupe factories and generate first copy on the fly
     """
 
-    factory: ClassVar[Callable[..., Callable[[], Any]]] = staticmethod(ast_factory)
-    fallback: ClassVar[Callable[..., Callable[[], Any]]] = staticmethod(fail)
+    factory: ClassVar = staticmethod(ast_factory)
+    fallback: ClassVar = staticmethod(fail)
 
     def __init__(self, obj: T, /, *, prepare: bool = False) -> None:
         """
