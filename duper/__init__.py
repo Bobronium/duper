@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import copy
-import itertools
 from collections import OrderedDict  # noqa
 from collections.abc import Callable
 from collections.abc import Iterable
 from functools import partial
 from typing import Any
-from typing import ClassVar
-from typing import Generic
 from typing import NoReturn
 from typing import TypeVar
 from typing import cast
@@ -69,48 +66,6 @@ def fail(obj: T, _: Any, factory: Callable[[T], Callable[[], T]], error: Excepti
         "\n" + " " * (len(_msg.repr(Error)) + 3) + f"{error!r}"
         f"\n\nTip: `{_msg.repr(deepdups)}(..., fallback={_msg.repr(warn)})` will fallback to standard deepcopy on errors"
     ) from error
-
-
-class Duper(Generic[T]):
-    """
-    Allows to define dupe factories and generate first copy on the fly
-    """
-
-    factory: ClassVar = staticmethod(ast_factory)
-    fallback: ClassVar = staticmethod(fail)
-
-    def __init__(self, obj: T, /, *, prepare: bool = False) -> None:
-        """
-        :param obj: object to copy
-        :param prepare: whether to construct a factory right away or not
-        """
-        self._obj = obj
-        self._deep_reconstructor: Callable[[], T] | None = None
-        self._shallow_reconstructor: Callable[[], T] | None = None
-        if prepare:
-            self.deep()
-            self.shallow()
-
-    def deep(self) -> T:
-        if self._deep_reconstructor is None:
-            self._deep_reconstructor = deepdups(
-                self._obj, factory=self.factory, fallback=self.fallback
-            )
-        return self._deep_reconstructor()
-
-    def shallow(self) -> T:
-        if self._shallow_reconstructor is None:
-            self._shallow_reconstructor = dups(self._obj)
-        return self._shallow_reconstructor()
-
-    def bulk(self, num: int) -> list[T]:
-        return [self.deep() for _ in itertools.repeat(None, num)]
-
-    def _check_deep(self) -> None:
-        if self._deep_reconstructor is None:
-            self._deep_reconstructor = deepdups(
-                self._obj, factory=self.factory, fallback=self.fallback
-            )
 
 
 def deepdups(
