@@ -1,6 +1,6 @@
 # duper
 
-Library for building fast and reusable copying factories for python objects.
+20-50x faster than `copy.deepcopy()` on mutable objects
 
 Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries, becoming the go-to library for copying objects within the same Python process.
 
@@ -8,9 +8,22 @@ Aims to fill the gaps in performance and obscurity between copy, pickle, json an
 
 
 ### 🚧 Project is in development
-There's no source code available yet.
+Current priorities
+- [x] Support for immutable types
+- [x] Support for builtin types
+- [x] Support for arbitrary types
+- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not respected)
+- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not respected)
+- [ ] Support for recursive structures
+- [ ] Find some quirky corner cases (there should be some)
+- [ ] Make initial construction faster (could be 30-50 times faster than now)
+- [ ] Support for memo in `__deepcopy__` and `__copy__` overrides
 
-If you have any feedback or ideas, you can [open the issue](https://github.com/Bobronium/duper/issues), or  contact me directly via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
+Project will be ready for release when `duper.deepdups(x)()` will behave the same as `copy.deepcopy()` and be as fast or faster than the latter. 
+
+Currently `duper.deepdups(x)` part is on average 2-5 times slower than `copy.deepcopy()`, so it makes sense to use it only when you need to have a lot of copies of the same object.
+
+If you have any feedback or ideas, you can [open an issue](https://github.com/Bobronium/duper/issues), or  reach out via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
 
 ---
 
@@ -37,11 +50,10 @@ from timesup import timesup
 
 @timesup(number=100000, repeats=3)
 def reconstruction():
-    x = {"a": 1, "b": [(1, 2, 3), (4, 5, 6)], "c": []}
-
-    copy.deepcopy(x)      # ~0.00605 ms (deepcopy)
-    dup = duper.Duper(x)  # ~0.00009 ms (duper_init):
-    dup.deep()            # ~0.00014 ms (duper_dup): 42.22 times faster than deepcopy
+    
+    copy.deepcopy(x)         # ~0.00576 ms (deepcopy)
+    dup = duper.deepdups(x)  # ~0.03131 ms (duper_build)
+    dup()                    # ~0.00013 ms (duper_dup): 45.18 times faster than deepcopy
 ```
 
 ### Real use case
@@ -78,7 +90,7 @@ def FastField(default, *args, **kwargs):
     """
     Overrides the fields that need to be copied to have default_factories
     """    
-    default_factory = duper.Duper(default, prepare=True).deep
+    default_factory = duper.deepdups(default)
     field_info: FieldInfo = Field(*args, default_factory=default_factory, **kwargs)
     return field_info
 
