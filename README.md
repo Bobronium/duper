@@ -4,8 +4,11 @@
 
 Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries, becoming the go-to library for copying objects within the same Python process.
 
-
+```shell
+pip install duper
+```
 [Skip to FAQ](#faq)... 
+
 
 ### 🚧 Project is in development
 Current priorities
