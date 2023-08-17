@@ -10,26 +10,15 @@ pip install duper
 [Skip to FAQ](#faq)... 
 
 
-### 🚧 Project is in development
-Current priorities
-- [x] Support for immutable types
-- [x] Support for builtin types
-- [x] Support for arbitrary types
-- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not respected)
-- [ ] Support for recursive structures
-- [ ] Find quirky corner cases
-- [ ] Make initial construction faster (potentially 30-50 times faster than current implementation)
-- [ ] Support memo in `__deepcopy__` and `__copy__` overrides
-
-The project will be ready for release when `duper.deepdups(x)()` behaves the same as `copy.deepcopy()` and is at least as fast, if not faster. 
-
-Currently, `duper.deepdups(x)` is on average 2-5 times slower than `copy.deepcopy()`, so it's recommended to use it only when you need many copies of the same object.
+Note: In its current implementation, duper.deepdups(x) might be 2-5 times slower than copy.deepcopy() for a single operation. It's when you need to create many identical copies of the same object, using duper.deepdups(x) is going to be advantageous due to its specific design.
 
 If you have any feedback or ideas, please [open an issue on GitHub](https://github.com/Bobronium/duper/issues) or reach out via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
 
 ---
 
 ### Showcase
+##### Using unreleased [timesup](https://github.com/Bobronium/timesup) library \o/. I've planned to release it soon after this one, but had to spend my *time* elswhere and put Open Source on pause. Hopefully, I'll make a first release later this year.
+
 ```py
 import duper
 import copy
@@ -156,4 +145,17 @@ copies = [reconstruct_data() for _ in range(10000)]
 ```
 
 #### Is it production ready?
-[Hell no!](#-project-is-in-development)
+[Hell no!](#-project-is-in-poc-state)
+
+### 🚧 Project is in a PoC state
+Current priorities
+- [x] Support for immutable types
+- [x] Support for builtin types
+- [x] Support for arbitrary types
+- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not respected)
+- [ ] Support for recursive structures
+- [ ] Find quirky corner cases
+- [ ] Make initial construction faster (potentially 30-50 times faster than current implementation)
+- [ ] Support memo in `__deepcopy__` and `__copy__` overrides
+
+The project will be ready for release when `duper.deepdups(x)()` behaves the same as `copy.deepcopy()` and is at least as fast, if not faster. 
