@@ -6,43 +6,23 @@ build-backend = "hatchling.build"
 name = "duper"
 description = ''
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 keywords = []
 authors = [
-  { name = "Bobronium", email = "appkiller16@gmail.com" },
-]
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3.7",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
-]
-dependencies = [
-    "typing_extensions; python_version < '3.11'",
-    "mypy-extensions",
+    { name = "Bobronium", email = "appkiller16@gmail.com" },
 ]
 dynamic = ["version"]
-
-
-[tool.hatch.dirs.env]
-virtual = ".hatch"
-#path = "./.venv_{env_name}"
-
-
-[project.optional-dependencies]
-dev = ["astpretty", "bytecode"]
-benchmark = ["pyinstrument", "ipython", "dill", "orjson"]
-typing = ["mypy"]
-profiling = ["pyinstrument"]
-debugging = ["ipython"]
-style = ["ruff", "black", "isort", "pyupgrade"]
-testing = ["pytest", "pytest-cov"]
-
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
 [project.urls]
 Documentation = "https://github.com/Bobronium/duper#readme"
 Issues = "https://github.com/Bobronium/duper/issues"
@@ -51,96 +31,166 @@ Source = "https://github.com/Bobronium/duper"
 [tool.hatch.version]
 path = "duper/__about__.py"
 
-
-[tool.hatch.envs.default]
-path = ".venv"
-features = ["benchmark", "lint", "test", "build"]
-
-
-[tool.hatch.envs.311]
-path = ".venv_311"
-python = "3.11"
-features = ["benchmark", "lint", "test", "build"]
-
-dependencies = [
-  "pytest",
-  "pytest-cov",
+dependencies = []
+[project.optional-dependencies]
+dev = [
+    "duper[style,types,test]",
+    "prek>=0.0.27",
+    "reuse>=5.0.2",
+    "setuptools>=80.9.0",
+]
+benchmark = [
+    "pyinstrument",
+    "ipython",
+    "dill",
+    "orjson",
+    "cloudpickle>=3.1.1",
+]
+types = [
+    "mypy>=1.17.1",
+]
+style = [
+    "ruff>=0.12.9",
+]
+test = [
+    "x-python @ git+https://github.com/rocky/x-python@b562021dfd102552d1ee404756ee8dd40903f83a ; python_version == '3.12'",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-codspeed>=4.0.0",
+    "duper[data]"
+]
+debug = [
+    "x-python @ git+https://github.com/rocky/x-python@b562021dfd102552d1ee404756ee8dd40903f83a ; python_version == '3.12'",
+    "ipython",
+]
+data = [
+    "attrs>=25.3.0",
+    "msgspec>=0.18.6",
+    "networkx>=3.1",
+    "numpy>=1.24.4",
+    "pandas>=2.0.3",
+    "pillow>=10.4.0",
+    "pydantic>=2.10.6",
+    "sympy>=1.13.3",
+    "torch>=2.4.1",
 ]
 
-[tool.hatch.envs.test]
-features = ["testing"]
+[tool.hatch.metadata]
+allow-direct-references = true
 
+[tool.hatch.build.targets.wheel.hooks.mypyc]
+dependencies = ["hatch-mypyc", "setuptools"]
+include = ["duper"]
+exclude = ["__init__.py"]
+enable-by-default = false  # set HATCH_BUILD_HOOK_ENABLE_MYPYC=1 to compile with mypyc
 
-[tool.hatch.envs.test.scripts]
-version = "python --version"
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=duper --cov=tests {args}"
-no-cov = "cov --no-cov {args}"
+[tool.hatch.build.targets.wheel.hooks.mypyc.options]
+opt_level = "1"
+debug_level = "3"
 
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "universal2", "arm64"]
 
-[tool.hatch.envs.style]
-features = ["style"]
+[tool.cibuildwheel.linux]
+archs = ["auto", "aarch64"]
+before-test = """
+set -e
 
-[tool.hatch.envs.types]
-features = ["typing"]
+# run block only on CPython 3.14
+if python - <<'PY'
+import sys
+raise SystemExit(0 if (sys.implementation.name=='cpython' and sys.version_info[:2]==(3,14)) else 1)
+PY
+then
+  echo "Preparing to build pytest-codspeed from source on cp314"
 
-[tool.hatch.envs.types.scripts]
-check = [
-  "mypy {env:PACKAGE}",
-]
+  # (libffi is optional; keep only if your dep needs headers)
+  ( command -v yum >/dev/null 2>&1 && yum install -y libffi-devel ) \
+  || ( command -v microdnf >/dev/null 2>&1 && microdnf install -y libffi-devel ) \
+  || ( command -v dnf >/dev/null 2>&1 && dnf install -y libffi-devel )
+fi
+"""
 
-[tool.hatch.envs.default.env-vars]
-PACKAGE = "{root}/duper"
-TESTS = "{root}/tests"
-SOURCES = "{root}/tests {root}/duper"
+[tool.cibuildwheel]
+archs = ["auto64", "auto32"]
+build-frontend = "build[uv]"
+environment = { HATCH_BUILD_HOOK_ENABLE_MYPYC = "1" }
+test-command = "pytest -q"
+test-extras = ["test"]
+test-sources = ["tests", "pyproject.toml"]
 
-
-[tool.hatch.envs.style.scripts]
-# hatch run is pretty slow and it doesn't feel good to use it
-# TODO: fix this or find a snapier alternative
-check = [
-  "ruff {env:SOURCES}",
-  "black --check {args} {env:SOURCES}",
-  "isort --check-only {args} {env:SOURCES}",
-]
-# Relatively safe operation that shouldn't break anything.
-fmt = [
-  "isort {env:SOURCES}",
-  "black {env:SOURCES}",
-]
-# fmt + auto fixes. Potentially can lead to unwanted changes.
-fix = [
-    "pyupgrade --py310-plus --exit-zero-even-if-changed {env:PACKAGE}/**/*.py {env:PACKAGE}/*.py",
-    "ruff {env:SOURCES} --fix",
-    "fmt",
-]
 
 [tool.coverage.run]
 branch = true
 parallel = true
 omit = [
-  "duper/__about__.py",
+    "duper/__about__.py",
 ]
 
 [tool.coverage.report]
 exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
 ]
 
-[tool.isort]
-force_single_line = true
-lines_after_imports = 2
-line_length = 100
-profile = "black"
-
-[tool.black]
-line_length = 100
 
 [tool.ruff]
 line-length = 100
-ignore = ["E501"]
+target-version = "py310"
 
+
+[tool.ruff.lint]
+
+select = ["ALL"]
+extend-safe-fixes = ["ALL"]
+unfixable = ["T201"]
+
+ignore = [
+    "ANN401", # | allow Any
+    "RUF001", # | allow cyrillic letters in comments
+    "COM812", # | trailing comas are handled by ruff format
+    "ISC001", # | recommended to be disabled when using ruff format
+    "B904", #   | raise from: modern pythons preserve previous exceptions
+    "EM101", #  | forbids using literal strings in exceptions
+    "EM102", #  |
+    "TRY003", # |
+    "A003", #   | Class attribute `id` is shadowing a Python builtin — it's ok in class body
+    "FIX001", # | Forbids using TODOs
+    "FIX002", # |
+    "TD001", #  |
+    "TD002", #  |
+    "TD003", #  |
+    "PLC0415" # | Top level imports
+]
+
+extend-ignore = [
+    "D", # docstrings
+    "PLR", # allowing complexity (lazy to meaningfully refactor + reducing function calling overhead)
+    "C"
+]
+
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyi" = ["ALL"]
+"tools/*" = ["TID252"]
+"__init__.py" = ["F401", "I001"]
+"duper/fastast.py" = ["N801", "A002"]
+"duper/factories/bytecode.py" = ["ALL"]
+"duper/debug.py" = ["T201"]
+"tests/*" = ["S101", "ANN", "ERA", "SLOT", "SLF", "PLW", "PT0", "N", "FIX", "TD", "B024", "PLE", "PYI", "PLC", "BLE", "S", "PERF"]
+"data/*" = ["ALL"]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["mcs"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+sections = { "duper_compile_support" = ["duper._compile_support"] }
+section-order = ["future", "duper_compile_support", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.mypy]
 # are these possible to comply with?
@@ -183,7 +233,8 @@ local_partial_types = false
 implicit_reexport = false
 strict_equality = true
 strict = true
-no_silence_site_packages = true
+# enable once this is resolved: https://github.com/python/mypy/issues/14796
+# no_silence_site_packages = true
 
 # Configuring error messages
 show_error_context = false
@@ -191,3 +242,20 @@ show_column_numbers = false
 show_error_codes = true
 color_output = true
 error_summary = true
+
+[tool.uv.sources]
+x-python = { git = "https://github.com/rocky/x-python" }
+duper = { workspace = true }
+
+[tool.codeflash]
+# All paths are relative to this pyproject.toml's directory.
+module-root = "duper"
+tests-root = "tests"
+test-framework = "pytest"
+ignore-paths = []
+disable-telemetry = true
+formatter-cmds = ["ruff check --exit-zero --fix $file", "ruff format $file"]
+
+
+[tool.pytest.ini_options]
+addopts = "-k 'ast or duper.deepcopy or test_copy or test_deepcopy or test_reprx or (bytecode and not reflexive)'"

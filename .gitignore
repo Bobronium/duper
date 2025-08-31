@@ -1,4 +1,5 @@
 .idea/
+.crush/
 cmake-build-*/
 *.iws
 out/
