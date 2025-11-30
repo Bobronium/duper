@@ -1,6 +1,6 @@
 # duper
 > [!TIP]
-> If you're looking for a fast drop-in 4-28x for `copy.deepcopy()`, check out [copium](https://github.com/Bobronium/copium).
+> If you're looking for a fast drop-in replacement for `copy.deepcopy()`, check out [copium](https://github.com/Bobronium/copium).
 
 
 > [!NOTE]
