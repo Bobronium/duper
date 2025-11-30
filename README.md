@@ -1,4 +1,17 @@
 # duper
+> [!TIP]
+> If you're looking for a fast drop-in 4-28x for `copy.deepcopy()`, check out [copium](https://github.com/Bobronium/copium).
+
+
+> [!NOTE]
+> The project is being re-packaged as multiple different packages:
+> - [copium](https://github.com/Bobronium/copium) — drop-in `deepcopy()` replacement
+> - astify — turn any object into ast expression that defines it
+> - reprx — executable repr: `eval(reprx(obj)) == obj`, useful for debugging and understanding python datamodel
+> - snapshots — take a snapshot of a given object and restore it at any time — what duper arguably should've been from the start
+> - [indifference](https://github.com/Bobronium/indifference) — track and compare changes between objects
+>
+> This readme exists for historical reasons.
 
 20-50x faster than `copy.deepcopy()` on mutable objects.
 
@@ -107,6 +120,18 @@ Well, it's slow. [Extremely slow](https://stackoverflow.com/questions/24756712/d
 `deepcopy()` needs to examine an arbitrary Python object each time the copy is needed. I figured that this must be quite wasteful, regardless of whether the code that executes this algorithm is compiled or not, since interacting with Python objects inevitably invokes the slow Python interpreter.
 
 When I had a proof of concept, I discovered [gh-72793: C implementation of parts of copy.deepcopy](https://github.com/python/cpython/pull/91610), which further confirmed my assumptions.
+
+> [!IMPORTANT]  
+> This was written a while ago and I think I was too quick to dismiss direct the direct speedup approach at the time.
+>
+> while this part is true:
+> > `deepcopy()` needs to examine an arbitrary Python object each time the copy is needed. I figured that this must be quite wasteful, regardless of whether the code that executes this algorithm is compiled or not,
+>
+> I was wrong about that part:
+> > since interacting with Python objects inevitably invokes the slow Python interpreter.
+> 
+> CPython allows interacting with `PyObject` without necessarily invoking the interpreter. The only part where it has to be invoked is when `__deepcopy__` or `__reduce__` protocols are used to copy the object.
+
 
 #### How is `duper` so fast without even being compiled?
 Instead of interacting with slow Python objects for each copy, it compiles concrete instructions to reproduces the object. There is still an interpreter overhead when reconstructing the object, but now it already knows the exact actions that are needed and just executes them.
