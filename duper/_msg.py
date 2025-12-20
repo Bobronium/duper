@@ -1,15 +1,14 @@
-# SPDX-FileCopyrightText: 2023 Bobronium <appkiller16@gmail.com>
+# SPDX-FileCopyrightText: 2023-present Arseny Boykov (Bobronium) <mail@bobronium.me>
 #
 # SPDX-License-Identifier: MPL-2.0
 
 import ast
 from typing import Any
 
-
 _builtin_repr = repr
 
 
-def repr(obj: Any) -> str:
+def repr(obj: Any) -> str:  # noqa: A001
     """
     >>> repr(1)
     '1'
@@ -19,7 +18,7 @@ def repr(obj: Any) -> str:
     '(1, 2, 3)'
     >>> repr((1, 2, 3, object()))
     'tuple(...)'
-    >>> import duper; repr(duper.ast_factory)
+    >>> import duper; repr(duper.build_reconstructor)
     'duper.ast_factory'
     """
 
@@ -38,7 +37,7 @@ def repr(obj: Any) -> str:
         obj = type(obj)
         suffix = "(...)"
 
-    if name in duper.__dict__.keys():
+    if name in duper.__dict__:  # type: ignore[attr-defined]
         module = "duper."
     else:
         module = obj.__module__ + "." if obj.__module__ != "builtins" else ""

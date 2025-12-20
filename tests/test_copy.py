@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023-present Arseny Boykov (Bobronium) <mail@bobronium.me>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 """
 Slightly modified builtin test.test_copy module
 """
@@ -13,28 +17,25 @@ from operator import gt
 from operator import le
 from operator import lt
 from operator import ne
-from test import support
+from typing import NoReturn
 
 import pytest
 
 import duper
-from duper.factories import ast
 
 
-ast.with_source = True
+def panic(*_, **__) -> NoReturn:
+    raise
 
 
-class Copy:
-    error = Error = original_copy.Error
-    copy = staticmethod(duper.dupe)
-    deepcopy = staticmethod(duper.deepdupe)
+def _deepcopy(obj, memo=None):
+    factory = duper.reconstructs(obj, check=False, fallback=panic, _keep_by_reference=memo)
+    return factory()
 
 
-copy = Copy()
-# keeps copy module intact, but allows to keep test cases relatively unchanged
-copy.__dict__.update(original_copy.__dict__)
-
-del copy.__dict__["copy"], copy.__dict__["deepcopy"]
+def _copy(obj):
+    factory = duper.copies(obj)
+    return factory()
 
 
 order_comparisons = le, lt, ge, gt
@@ -42,15 +43,38 @@ equality_comparisons = eq, ne
 comparisons = order_comparisons + equality_comparisons
 
 
-@pytest.fixture()
-def self():
-    return unittest.TestCase()
+class CopyModule:
+    error = Error = original_copy.Error
+    copy = staticmethod(duper.copy)
+    deepcopy = staticmethod(duper.deepcopy)
+
+
+@pytest.fixture(
+    params=[
+        pytest.param((duper.copy, duper.deepcopy), id="runtime"),
+        pytest.param((_copy, _deepcopy), id="factory"),
+        # pytest.param((_copy, orcopy.deepcopy), id="orcopy"),
+    ]
+)
+def copy(request) -> CopyModule:
+    copy_substitute, deepcopy_substitute = request.param
+
+    class CopyModule:
+        error = Error = original_copy.Error
+        copy = staticmethod(copy_substitute)
+        deepcopy = staticmethod(deepcopy_substitute)
+
+    copy_module = CopyModule()
+    # keeps copy module intact, but allows to keep test cases relatively unchanged
+    copy_module.__dict__.update(original_copy.__dict__)
+    del copy_module.__dict__["copy"], copy_module.__dict__["deepcopy"]
+    return copy_module
 
 
 # Attempt full line coverage of copy.py from top to bottom
 
 
-def test_exceptions(self):
+def test_exceptions(copy) -> None:
     assert copy.Error is copy.error
     assert issubclass(copy.Error, Exception)
 
@@ -60,15 +84,15 @@ def test_exceptions(self):
 # The copy() method
 
 
-def test_copy_basic(self):
+def test_copy_basic(copy) -> None:
     x = 42
     y = copy.copy(x)
     assert x == y
 
 
-def test_copy_copy(self):
-    class C(object):
-        def __init__(self, foo):
+def test_copy_copy(copy) -> None:
+    class C:
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __copy__(self):
@@ -80,8 +104,8 @@ def test_copy_copy(self):
     assert y.foo == x.foo
 
 
-def test_copy_registry(self):
-    class C(object):
+def test_copy_registry(copy) -> None:
+    class C:
         def __new__(cls, foo):
             obj = object.__new__(cls)
             obj.foo = foo
@@ -97,8 +121,8 @@ def test_copy_registry(self):
     copy.copy(x)
 
 
-def test_copy_reduce_ex(self):
-    class C(object):
+def test_copy_reduce_ex(copy) -> None:
+    class C:
         def __reduce_ex__(self, proto):
             c.append(1)
             return ""
@@ -113,8 +137,8 @@ def test_copy_reduce_ex(self):
     assert c == [1]
 
 
-def test_copy_reduce(self):
-    class C(object):
+def test_copy_reduce(copy) -> None:
+    class C:
         def __reduce__(self):
             c.append(1)
             return ""
@@ -126,8 +150,8 @@ def test_copy_reduce(self):
     assert c == [1]
 
 
-def test_copy_cant(self):
-    class C(object):
+def test_copy_cant(copy) -> None:
+    class C:
         def __getattribute__(self, name):
             if name.startswith("__reduce"):
                 raise AttributeError(name)
@@ -142,10 +166,10 @@ def get_copy_atomic():
     class Classic:
         pass
 
-    class NewStyle(object):
+    class NewStyle:
         pass
 
-    def f():
+    def f() -> None:
         pass
 
     class WithMetaclass(metaclass=abc.ABCMeta):
@@ -177,11 +201,11 @@ def get_copy_atomic():
 
 
 @pytest.mark.parametrize("x", get_copy_atomic())
-def test_copy_atomic(x):
+def test_copy_atomic(copy, x) -> None:
     assert copy.copy(x) is x
 
 
-def test_copy_list(self):
+def test_copy_list(copy) -> None:
     x = [1, 2, 3]
     y = copy.copy(x)
     assert y == x
@@ -192,7 +216,7 @@ def test_copy_list(self):
     assert y is not x
 
 
-def test_copy_tuple(self):
+def test_copy_tuple(copy) -> None:
     x = (1, 2, 3)
     assert copy.copy(x) is x
     x = ()
@@ -201,7 +225,7 @@ def test_copy_tuple(self):
     assert copy.copy(x) is x
 
 
-def test_copy_dict(self):
+def test_copy_dict(copy) -> None:
     x = {"foo": 1, "bar": 2}
     y = copy.copy(x)
     assert y == x
@@ -212,7 +236,7 @@ def test_copy_dict(self):
     assert y is not x
 
 
-def test_copy_set(self):
+def test_copy_set(copy) -> None:
     x = {1, 2, 3}
     y = copy.copy(x)
     assert y == x
@@ -223,14 +247,14 @@ def test_copy_set(self):
     assert y is not x
 
 
-def test_copy_frozenset(self):
+def test_copy_frozenset(copy) -> None:
     x = frozenset({1, 2, 3})
     assert copy.copy(x) is x
     x = frozenset()
     assert copy.copy(x) is x
 
 
-def test_copy_bytearray(self):
+def test_copy_bytearray(copy) -> None:
     x = bytearray(b"abc")
     y = copy.copy(x)
     assert y == x
@@ -241,9 +265,9 @@ def test_copy_bytearray(self):
     assert y is not x
 
 
-def test_copy_inst_vanilla(self):
+def test_copy_inst_vanilla(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __eq__(self, other):
@@ -253,9 +277,9 @@ def test_copy_inst_vanilla(self):
     assert copy.copy(x) == x
 
 
-def test_copy_inst_copy(self):
+def test_copy_inst_copy(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __copy__(self):
@@ -268,9 +292,9 @@ def test_copy_inst_copy(self):
     assert copy.copy(x) == x
 
 
-def test_copy_inst_getinitargs(self):
+def test_copy_inst_getinitargs(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getinitargs__(self):
@@ -283,7 +307,7 @@ def test_copy_inst_getinitargs(self):
     assert copy.copy(x) == x
 
 
-def test_copy_inst_getnewargs(self):
+def test_copy_inst_getnewargs(copy) -> None:
     class C(int):
         def __new__(cls, foo):
             self = int.__new__(cls)
@@ -304,7 +328,7 @@ def test_copy_inst_getnewargs(self):
     assert y.foo == x.foo
 
 
-def test_copy_inst_getnewargs_ex(self):
+def test_copy_inst_getnewargs_ex(copy) -> None:
     class C(int):
         def __new__(cls, *, foo):
             self = int.__new__(cls)
@@ -325,9 +349,9 @@ def test_copy_inst_getnewargs_ex(self):
     assert y.foo == x.foo
 
 
-def test_copy_inst_getstate(self):
+def test_copy_inst_getstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getstate__(self):
@@ -340,9 +364,9 @@ def test_copy_inst_getstate(self):
     assert copy.copy(x) == x
 
 
-def test_copy_inst_setstate(self):
+def test_copy_inst_setstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __setstate__(self, state):
@@ -355,9 +379,9 @@ def test_copy_inst_setstate(self):
     assert copy.copy(x) == x
 
 
-def test_copy_inst_getstate_setstate(self):
+def test_copy_inst_getstate_setstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getstate__(self):
@@ -373,19 +397,20 @@ def test_copy_inst_getstate_setstate(self):
     assert copy.copy(x) == x
     # State with boolean value is false (issue #25718)
     x = C(0.0)
+
     assert copy.copy(x) == x
 
 
 # The deepcopy() method
 
 
-def test_deepcopy_basic(self):
+def test_deepcopy_basic(copy) -> None:
     x = 42
     y = copy.deepcopy(x)
     assert y == x
 
 
-def test_deepcopy_same_object(self):
+def test_deepcopy_same_object(copy) -> None:
     # previously was called test_deepcopy_memo, but I find new name to be clearer
     # Tests of reflexive objects are under type-specific sections below.
     # This tests only repetitions of objects.
@@ -398,7 +423,20 @@ def test_deepcopy_same_object(self):
     assert y[0] is y[1]
 
 
-def test_deepcopy_issubclass(self):
+def test_deepcopy_same_object_different_parents(copy) -> None:
+    # previously was called test_deepcopy_memo, but I find new name to be clearer
+    # Tests of reflexive objects are under type-specific sections below.
+    # This tests only repetitions of objects.
+    x = []
+    x = [[x], x]
+    y = copy.deepcopy(x)
+    assert y == x
+    assert y is not x
+    assert y[0] is not x[0]
+    assert y[0][0] is y[1]
+
+
+def test_deepcopy_issubclass(copy) -> None:
     # XXX Note: there's no way to test the TypeError coming out of
     # issubclass() -- this can only happen when an extension
     # module defines a "type" that doesn't formally inherit from
@@ -412,9 +450,9 @@ def test_deepcopy_issubclass(self):
     assert copy.deepcopy(C) == C
 
 
-def test_deepcopy_deepcopy(self):
-    class C(object):
-        def __init__(self, foo):
+def test_deepcopy_deepcopy(copy) -> None:
+    class C:
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __deepcopy__(self, memo=None):
@@ -426,8 +464,8 @@ def test_deepcopy_deepcopy(self):
     assert y.foo == x.foo
 
 
-def test_deepcopy_registry(self):
-    class C(object):
+def test_deepcopy_registry(copy) -> None:
+    class C:
         def __new__(cls, foo):
             obj = object.__new__(cls)
             obj.foo = foo
@@ -443,8 +481,8 @@ def test_deepcopy_registry(self):
     copy.deepcopy(x)
 
 
-def test_deepcopy_reduce_ex(self):
-    class C(object):
+def test_deepcopy_reduce_ex(copy) -> None:
+    class C:
         def __reduce_ex__(self, proto):
             c.append(1)
             return ""
@@ -459,8 +497,8 @@ def test_deepcopy_reduce_ex(self):
     assert c == [1]
 
 
-def test_deepcopy_reduce(self):
-    class C(object):
+def test_deepcopy_reduce(copy) -> None:
+    class C:
         def __reduce__(self):
             c.append(1)
             return ""
@@ -472,8 +510,8 @@ def test_deepcopy_reduce(self):
     assert c == [1]
 
 
-def test_deepcopy_cant(self):
-    class C(object):
+def test_deepcopy_cant(copy) -> None:
+    class C:
         def __getattribute__(self, name):
             if name.startswith("__reduce"):
                 raise AttributeError(name)
@@ -491,10 +529,10 @@ def get_deepcopy_atomic():
     class Classic:
         pass
 
-    class NewStyle(object):
+    class NewStyle:
         pass
 
-    def f():
+    def f() -> None:
         pass
 
     return [
@@ -517,11 +555,11 @@ def get_deepcopy_atomic():
 
 
 @pytest.mark.parametrize("x", get_deepcopy_atomic())
-def test_deepcopy_atomic(x):
+def test_deepcopy_atomic(copy, x) -> None:
     assert copy.deepcopy(x) is x
 
 
-def test_deepcopy_list(self):
+def test_deepcopy_list(copy) -> None:
     x = [[1, 2], 3]
     y = copy.deepcopy(x)
     assert y == x
@@ -529,9 +567,8 @@ def test_deepcopy_list(self):
     assert x[0] is not y[0]
 
 
-@pytest.mark.xfail(strict=True, raises=duper.Error)
 @pytest.mark.parametrize("op", comparisons)
-def test_deepcopy_reflexive_list(op):
+def test_deepcopy_reflexive_list(copy, op) -> None:
     x = []
     x.append(x)
     y = copy.deepcopy(x)
@@ -542,13 +579,13 @@ def test_deepcopy_reflexive_list(op):
     assert len(y) == 1
 
 
-def test_deepcopy_empty_tuple(self):
+def test_deepcopy_empty_tuple(copy) -> None:
     x = ()
     y = copy.deepcopy(x)
     assert x is y
 
 
-def test_deepcopy_tuple(self):
+def test_deepcopy_tuple(copy) -> None:
     x = ([1, 2], 3)
     y = copy.deepcopy(x)
     assert y == x
@@ -556,15 +593,14 @@ def test_deepcopy_tuple(self):
     assert x[0] is not y[0]
 
 
-def test_deepcopy_tuple_of_immutables(self):
+def test_deepcopy_tuple_of_immutables(copy) -> None:
     x = ((1, 2), 3)
     y = copy.deepcopy(x)
     assert x is y
 
 
-@pytest.mark.xfail(strict=True, raises=duper.Error)
 @pytest.mark.parametrize("op", comparisons)
-def test_deepcopy_reflexive_tuple(op):
+def test_deepcopy_reflexive_tuple(copy, op) -> None:
     x = ([], 4, 3)
     x[0].append(x)
     y = copy.deepcopy(x)
@@ -576,7 +612,7 @@ def test_deepcopy_reflexive_tuple(op):
         op(y, x)
 
 
-def test_deepcopy_dict(self):
+def test_deepcopy_dict(copy) -> None:
     x = {"foo": [1, 2], "bar": 3}
     y = copy.deepcopy(x)
     assert y == x
@@ -584,9 +620,10 @@ def test_deepcopy_dict(self):
     assert x["foo"] is not y["foo"]
 
 
-@pytest.mark.xfail(strict=True, raises=duper.Error)
-@pytest.mark.parametrize("order_op,eq_op", zip(order_comparisons, equality_comparisons))
-def test_deepcopy_reflexive_dict_order(order_op, eq_op):
+@pytest.mark.parametrize(
+    ("order_op", "eq_op"), zip(order_comparisons, equality_comparisons, strict=False)
+)
+def test_deepcopy_reflexive_dict_order(copy, order_op, eq_op) -> None:
     x = {}
     x["foo"] = x
     y = copy.deepcopy(x)
@@ -599,16 +636,25 @@ def test_deepcopy_reflexive_dict_order(order_op, eq_op):
     assert len(y) == 1
 
 
-@pytest.mark.xfail(strict=True, raises=duper.Error)
-def test_deepcopy_keepalive(self):
+def test_deepcopy_keepalive(copy) -> None:
+    if copy.deepcopy is _deepcopy:
+        pytest.xfail("Factories don't respect memo")
     memo = {}
     x = []
+    # original_copy.deepcopy(x, memo)
     copy.deepcopy(x, memo)
     assert memo[id(memo)][0] is x
 
 
-@pytest.mark.xfail(strict=True, raises=duper.Error)
-def test_deepcopy_dont_memo_immutable(self):
+def test_deepcopy_by_reference(copy) -> None:
+    x = []
+    memo = {id(x): 123}
+    assert copy.deepcopy(x, memo) == 123
+
+
+def test_deepcopy_dont_memo_immutable(copy) -> None:
+    if copy.deepcopy is _deepcopy:
+        pytest.xfail("Factories don't respect memo")
     memo = {}
     x = [1, 2, 3, 4]
     y = copy.deepcopy(x, memo)
@@ -624,9 +670,9 @@ def test_deepcopy_dont_memo_immutable(self):
     assert len(memo) == 2
 
 
-def test_deepcopy_inst_vanilla(self):
+def test_deepcopy_inst_vanilla(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __eq__(self, other):
@@ -638,9 +684,9 @@ def test_deepcopy_inst_vanilla(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_deepcopy(self):
+def test_deepcopy_inst_deepcopy(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __deepcopy__(self, memo):
@@ -656,9 +702,9 @@ def test_deepcopy_inst_deepcopy(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_getinitargs(self):
+def test_deepcopy_inst_getinitargs(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getinitargs__(self):
@@ -674,7 +720,7 @@ def test_deepcopy_inst_getinitargs(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_getnewargs(self):
+def test_deepcopy_inst_getnewargs(copy) -> None:
     class C(int):
         def __new__(cls, foo):
             self = int.__new__(cls)
@@ -696,7 +742,7 @@ def test_deepcopy_inst_getnewargs(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_getnewargs_ex(self):
+def test_deepcopy_inst_getnewargs_ex(copy) -> None:
     class C(int):
         def __new__(cls, *, foo):
             self = int.__new__(cls)
@@ -718,9 +764,9 @@ def test_deepcopy_inst_getnewargs_ex(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_getstate(self):
+def test_deepcopy_inst_getstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getstate__(self):
@@ -736,9 +782,9 @@ def test_deepcopy_inst_getstate(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_setstate(self):
+def test_deepcopy_inst_setstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __setstate__(self, state):
@@ -754,9 +800,9 @@ def test_deepcopy_inst_setstate(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_inst_getstate_setstate(self):
+def test_deepcopy_inst_getstate_setstate(copy) -> None:
     class C:
-        def __init__(self, foo):
+        def __init__(self, foo) -> None:
             self.foo = foo
 
         def __getstate__(self):
@@ -781,7 +827,7 @@ def test_deepcopy_inst_getstate_setstate(self):
     assert y.foo is not x.foo
 
 
-def test_deepcopy_reflexive_inst(self):
+def test_deepcopy_reflexive_inst(copy) -> None:
     class C:
         pass
 
@@ -795,8 +841,8 @@ def test_deepcopy_reflexive_inst(self):
 # _reconstruct()
 
 
-def test_reconstruct_string(self):
-    class C(object):
+def test_reconstruct_string(copy) -> None:
+    class C:
         def __reduce__(self):
             return ""
 
@@ -807,8 +853,8 @@ def test_reconstruct_string(self):
     assert y is x
 
 
-def test_reconstruct_nostate(self):
-    class C(object):
+def test_reconstruct_nostate(copy) -> None:
+    class C:
         def __reduce__(self):
             return (C, ())
 
@@ -820,8 +866,8 @@ def test_reconstruct_nostate(self):
     assert y.__class__ is x.__class__
 
 
-def test_reconstruct_state(self):
-    class C(object):
+def test_reconstruct_state(copy) -> None:
+    class C:
         def __reduce__(self):
             return (C, (), self.__dict__)
 
@@ -837,8 +883,8 @@ def test_reconstruct_state(self):
     assert y.foo is not x.foo
 
 
-def test_reconstruct_state_setstate(self):
-    class C(object):
+def test_reconstruct_state_setstate(copy) -> None:
+    class C:
         def __reduce__(self):
             return (C, (), self.__dict__)
 
@@ -857,8 +903,8 @@ def test_reconstruct_state_setstate(self):
     assert y.foo is not x.foo
 
 
-def test_reconstruct_reflexive(self):
-    class C(object):
+def test_reconstruct_reflexive(copy) -> None:
+    class C:
         pass
 
     x = C()
@@ -871,7 +917,7 @@ def test_reconstruct_reflexive(self):
 # Additions for Python 2.3 and pickle protocol 2
 
 
-def test_reduce_4tuple(self):
+def test_reduce_4tuple(copy) -> None:
     class C(list):
         def __reduce__(self):
             return (C, (), self.__dict__, iter(self))
@@ -890,7 +936,7 @@ def test_reduce_4tuple(self):
     assert x[0] is not y[0]
 
 
-def test_reduce_5tuple(self):
+def test_reduce_5tuple(copy) -> None:
     class C(dict):
         def __reduce__(self):
             return (C, (), self.__dict__, None, self.items())
@@ -909,8 +955,8 @@ def test_reduce_5tuple(self):
     assert x["foo"] is not y["foo"]
 
 
-def test_copy_slots(self):
-    class C(object):
+def test_copy_slots(copy) -> None:
+    class C:
         __slots__ = ["foo"]
 
     x = C()
@@ -919,8 +965,8 @@ def test_copy_slots(self):
     assert x.foo is y.foo
 
 
-def test_deepcopy_slots(self):
-    class C(object):
+def test_deepcopy_slots(copy) -> None:
+    class C:
         __slots__ = ["foo"]
 
     x = C()
@@ -930,15 +976,15 @@ def test_deepcopy_slots(self):
     assert x.foo is not y.foo
 
 
-def test_deepcopy_dict_subclass(self):
+def test_deepcopy_dict_subclass(copy) -> None:
     class C(dict):
-        def __init__(self, d=None):
+        def __init__(self, d=None) -> None:
             if not d:
                 d = {}
             self._keys = list(d.keys())
             super().__init__(d)
 
-        def __setitem__(self, key, item):
+        def __setitem__(self, key, item) -> None:
             super().__setitem__(key, item)
             if key not in self._keys:
                 self._keys.append(key)
@@ -953,7 +999,7 @@ def test_deepcopy_dict_subclass(self):
     assert x._keys != y._keys
 
 
-def test_copy_list_subclass(self):
+def test_copy_list_subclass(copy) -> None:
     class C(list):
         pass
 
@@ -966,7 +1012,7 @@ def test_copy_list_subclass(self):
     assert x.foo is y.foo
 
 
-def test_deepcopy_list_subclass(self):
+def test_deepcopy_list_subclass(copy) -> None:
     class C(list):
         pass
 
@@ -979,7 +1025,7 @@ def test_deepcopy_list_subclass(self):
     assert x.foo is not y.foo
 
 
-def test_copy_tuple_subclass(self):
+def test_copy_tuple_subclass(copy) -> None:
     class C(tuple):
         pass
 
@@ -989,7 +1035,7 @@ def test_copy_tuple_subclass(self):
     assert tuple(y) == (1, 2, 3)
 
 
-def test_deepcopy_tuple_subclass(self):
+def test_deepcopy_tuple_subclass(copy) -> None:
     class C(tuple):
         pass
 
@@ -1001,8 +1047,8 @@ def test_deepcopy_tuple_subclass(self):
     assert x[0] is not y[0]
 
 
-def test_getstate_exc(self):
-    class EvilState(object):
+def test_getstate_exc(copy) -> None:
+    class EvilState:
         def __getstate__(self):
             raise ValueError("ain't got no stickin' state")
 
@@ -1010,7 +1056,7 @@ def test_getstate_exc(self):
         copy.copy(EvilState())
 
 
-def test_copy_function(self):
+def test_copy_function(copy) -> None:
     assert copy.copy(global_foo) == global_foo
 
     def foo(x, y):
@@ -1018,13 +1064,13 @@ def test_copy_function(self):
 
     assert copy.copy(foo) == foo
 
-    def bar():
+    def bar() -> None:
         return None
 
     assert copy.copy(bar) == bar
 
 
-def test_deepcopy_function(self):
+def test_deepcopy_function(copy) -> None:
     assert copy.deepcopy(global_foo) == global_foo
 
     def foo(x, y):
@@ -1032,14 +1078,14 @@ def test_deepcopy_function(self):
 
     assert copy.deepcopy(foo) == foo
 
-    def bar():
+    def bar() -> None:
         return None
 
     assert copy.deepcopy(bar) == bar
 
 
-def check_weakref(_copy):
-    class C(object):
+def check_weakref(_copy) -> None:
+    class C:
         pass
 
     obj = C()
@@ -1051,16 +1097,16 @@ def check_weakref(_copy):
     assert y is x
 
 
-def test_copy_weakref(self):
+def test_copy_weakref(copy) -> None:
     check_weakref(copy.copy)
 
 
-def test_deepcopy_weakref(self):
+def test_deepcopy_weakref(copy) -> None:
     check_weakref(copy.deepcopy)
 
 
-def check_copy_weakdict(_dicttype):
-    class C(object):
+def check_copy_weakdict(copy, _dicttype) -> None:
+    class C:
         pass
 
     a, b, c, d = [C() for i in range(4)]
@@ -1074,7 +1120,7 @@ def check_copy_weakdict(_dicttype):
     assert v[c] == d
     assert len(v) == 2
     del c, d
-    support.gc_collect()  # For PyPy or other GCs.
+    # #  support.gc_collect()  # For PyPy or other GCs.
     assert len(v) == 1
     x, y = C(), C()
     # The underlying containers are decoupled
@@ -1082,17 +1128,17 @@ def check_copy_weakdict(_dicttype):
     assert x not in u
 
 
-def test_copy_weakkeydict(self):
-    check_copy_weakdict(weakref.WeakKeyDictionary)
+def test_copy_weakkeydict(copy) -> None:
+    check_copy_weakdict(copy, weakref.WeakKeyDictionary)
 
 
-def test_copy_weakvaluedict(self):
-    check_copy_weakdict(weakref.WeakValueDictionary)
+def test_copy_weakvaluedict(copy) -> None:
+    check_copy_weakdict(copy, weakref.WeakValueDictionary)
 
 
-def test_deepcopy_weakkeydict(self):
-    class C(object):
-        def __init__(self, i):
+def test_deepcopy_weakkeydict(copy) -> None:
+    class C:
+        def __init__(self, i) -> None:
             self.i = i
 
     a, b, c, d = [C(i) for i in range(4)]
@@ -1108,13 +1154,13 @@ def test_deepcopy_weakkeydict(self):
     assert v[a].i == b.i
     assert v[c].i == d.i
     del c
-    support.gc_collect()  # For PyPy or other GCs.
+    #  support.gc_collect()  # For PyPy or other GCs.
     assert len(v) == 1
 
 
-def test_deepcopy_weakvaluedict(self):
-    class C(object):
-        def __init__(self, i):
+def test_deepcopy_weakvaluedict(copy) -> None:
+    class C:
+        def __init__(self, i) -> None:
             self.i = i
 
     a, b, c, d = [C(i) for i in range(4)]
@@ -1134,13 +1180,13 @@ def test_deepcopy_weakvaluedict(self):
     assert t is d
     del x, y, z, t
     del d
-    support.gc_collect()  # For PyPy or other GCs.
+    #  support.gc_collect()  # For PyPy or other GCs.
     assert len(v) == 1
 
 
-def test_deepcopy_bound_method(self):
-    class Foo(object):
-        def m(self):
+def test_deepcopy_bound_method(copy) -> None:
+    class Foo:
+        def m(self) -> None:
             pass
 
     f = Foo()

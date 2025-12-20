@@ -2,9 +2,8 @@ name: style
 
 on:
   push:
-    branches: [main, poc, pub]
+    branches: [ main, poc, pub ]
   pull_request:
-    branches: [main, poc, pub]
 
 concurrency:
   group: style-${{ github.head_ref }}
@@ -21,13 +20,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python "3.11"
+      - name: Set up Python "3.13"
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
-      - name: Install Hatch
-        run: pip install --upgrade hatch
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
-      - name: Run check
-        run: hatch run style:check
+      - name: Run ruff
+        run: uv run --python-preference system --extra style ruff check duper
+
+      - name: Run ruff
+        run: uv run --python-preference system --extra style ruff format duper

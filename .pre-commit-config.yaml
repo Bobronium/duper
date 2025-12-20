@@ -1,0 +1,34 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: ruff format
+        language: system
+        types: [ python ]
+
+      - id: ruff-check
+        name: ruff check --fix
+        entry: ruff check --fix
+        language: system
+        types: [ python ]
+
+      - id: reuse
+        name: reuse lint
+        entry: reuse annotate --license MPL-2.0 --copyright "Arseny Boykov (Bobronium) <mail@bobronium.me>" -y 2023-present
+        types: [ python ]
+        language: system
+
+      - id: mypy
+        name: mypy
+        entry: mypy duper
+        language: system
+        types: [ python ]
+        stages: [ push ]
+
+      - id: pytest
+        name: pytest
+        entry: pytest tests
+        language: system
+        pass_filenames: false
+        stages: [ push ]

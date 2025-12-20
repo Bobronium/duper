@@ -15,40 +15,61 @@
 
 20-50x faster than `copy.deepcopy()` on mutable objects.
 
-Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries, becoming the go-to library for copying objects within the same Python process.
+Aims to fill the gaps in performance and obscurity between copy, pickle, json and other serialization libraries,
+becoming the go-to library for copying objects within the same Python process.
 
 ```shell
 pip install duper
 ```
-[Skip to FAQ](#faq)... 
 
+[Skip to FAQ](#faq)...
 
-Note: In its current implementation, duper.deepdups(x) might be 2-5 times slower than copy.deepcopy() for a single operation. It's when you need to create many identical copies of the same object, using duper.deepdups(x) is going to be advantageous due to its specific design.
+Note: In its current implementation, duper.deepdups(x) might be 2-5 times slower than copy.deepcopy() for a single
+operation. It's when you need to create many identical copies of the same object, using duper.deepdups(x) is going to be
+advantageous due to its specific design.
 
-If you have any feedback or ideas, please [open an issue on GitHub](https://github.com/Bobronium/duper/issues) or reach out via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
+If you have any feedback or ideas, please [open an issue on GitHub](https://github.com/Bobronium/duper/issues) or reach
+out via [bobronium@gmail.com](mailto:bobronium@gmail.com) or [Telegram](https://t.me/Bobronium).
 
 ---
 
 ### Showcase
-##### Using unreleased [timesup](https://github.com/Bobronium/timesup) library \o/. I've planned to release it soon after this one, but had to spend my *time* elswhere and put Open Source on pause. Hopefully, I'll make a first release later this year.
+
+##### Using unreleased [timesup](https://github.com/Bobronium/timesup) library \o/. I've planned to release it soon after this one, but had to spend my
+
+*time* elswhere and put Open Source on pause. Hopefully, I'll make a first release later this year.
 
 ```py
-import duper
 import copy
+from decimal import Decimal
+
+import duper
 from timesup import timesup
 
 
-@timesup(number=100000, repeats=3)
+@timesup(number=1000, profile=not duper.COMPILED, repeats=1)
 def reconstruction():
-    x = {"a": 1, "b": [(1, 2, 3), (4, 5, 6)], "c": [object(), object(), object()]}  # i
-
-    copy.deepcopy(x)         # ~0.00576 ms (deepcopy)
-    dup = duper.deepdups(x)  # ~0.03131 ms (duper_build)
-    dup()                    # ~0.00013 ms (duper_dup): 45.18 times faster than deepcopy
+    x = {"a": 1, "b": [(1, 2, 3), (4, 5, 6)], "c": [object(), Decimal("3.14"), {()}]}  
+    
+    copy.deepcopy(x)                         # ~0.01271 ms (deepcopy)
+    duper.deepcopy(x)                        # ~0.00354 ms (duper_deepcopy): 3.59 times faster than deepcopy
+    
+    [copy.deepcopy(x) for _ in range(10)]    # ~0.12629 ms (deepcopy_10)
+    [copy.deepcopy(x) for _ in range(100)]   # ~1.26483 ms (deepcopy_100)
+    [copy.deepcopy(x) for _ in range(1000)]  # ~12.53537 ms (deepcopy_1000)
+    
+    duper.replicate(x, 10)                   # ~0.03589 ms (replicate_10): 3.52 times faster than deepcopy_10
+    duper.replicate(x, 100)                  # ~0.07625 ms (replicate_100): 16.59 times faster than deepcopy_100
+    duper.replicate(x, 1000)                 # ~0.38839 ms (replicate_1000): 32.28 times faster than deepcopy_1000
+    
+    replicate_x = duper.reconstructs(x)  #   # ~0.04128 ms (build_reconstructor): 3.25 times slower than deepcopy
+    replicate_x()                            # ~0.00026 ms (duper_deepcopies): 48.85 times faster than deepcopy
 ```
 
 ### Real use case
+
 #### Pydantic
+
 <details>
 <summary>Models definition</summary>
 
@@ -75,13 +96,12 @@ class User(BaseModel):
     }
 
 
-
 @wraps(Field)
 def FastField(default, *args, **kwargs):
     """
     Overrides the fields that need to be copied to have default_factories
-    """    
-    default_factory = duper.deepdups(default)
+    """
+    default_factory = duper.reconstructs(default)
     field_info: FieldInfo = Field(*args, default_factory=default_factory, **kwargs)
     return field_info
 
@@ -107,19 +127,29 @@ class FastUser(BaseModel):
 ```py
 @timesup(number=100000, repeats=3)
 def pydantic_defaults():
-    User(id=42)        # ~0.00935 ms (with_deepcopy)
+    User(id=42)  # ~0.00935 ms (with_deepcopy)
     FastUser(id=1337)  # ~0.00292 ms (with_duper): 3.20 times faster than with_deepcopy
 
 ```
 
 ### FAQ
+
 #### What's wrong with `copy.deepcopy()`?
-Well, it's slow. [Extremely slow](https://stackoverflow.com/questions/24756712/deepcopy-is-extremely-slow), in fact. This has been noted by many, but [no equally powerful alternatives](https://stackoverflow.com/questions/1410615/copy-deepcopy-vs-pickle) were suggested.
+
+Well, it's slow. [Extremely slow](https://stackoverflow.com/questions/24756712/deepcopy-is-extremely-slow), in fact.
+This has been noted by many,
+but [no equally powerful alternatives](https://stackoverflow.com/questions/1410615/copy-deepcopy-vs-pickle) were
+suggested.
 
 #### Why not just rewrite it in C or Rust?
-`deepcopy()` needs to examine an arbitrary Python object each time the copy is needed. I figured that this must be quite wasteful, regardless of whether the code that executes this algorithm is compiled or not, since interacting with Python objects inevitably invokes the slow Python interpreter.
 
-When I had a proof of concept, I discovered [gh-72793: C implementation of parts of copy.deepcopy](https://github.com/python/cpython/pull/91610), which further confirmed my assumptions.
+`deepcopy()` needs to examine an arbitrary Python object each time the copy is needed. I figured that this must be quite
+wasteful, regardless of whether the code that executes this algorithm is compiled or not, since interacting with Python
+objects inevitably invokes the slow Python interpreter.
+
+When I had a proof of concept, I
+discovered [gh-72793: C implementation of parts of copy.deepcopy](https://github.com/python/cpython/pull/91610), which
+further confirmed my assumptions.
 
 > [!IMPORTANT]  
 > This was written a while ago and I think I was too quick to dismiss direct the direct speedup approach at the time.
@@ -134,53 +164,77 @@ When I had a proof of concept, I discovered [gh-72793: C implementation of parts
 
 
 #### How is `duper` so fast without even being compiled?
-Instead of interacting with slow Python objects for each copy, it compiles concrete instructions to reproduces the object. There is still an interpreter overhead when reconstructing the object, but now it already knows the exact actions that are needed and just executes them.
+
+Instead of interacting with slow Python objects for each copy, it compiles concrete instructions to reproduces the
+object. There is still an interpreter overhead when reconstructing the object, but now it already knows the exact
+actions that are needed and just executes them.
 Interestingly, I learned that this approach has a lot in common with how `pickle` and `marshal` work.
 
 #### How is it different from `pickle` or `marshal`?
-Both are designed for `serialization`, so they need to dump objects to `bytes` that can be stored on disk and then used to reconstruct the object, even in a different Python process.
+
+Both are designed for `serialization`, so they need to dump objects to `bytes` that can be stored on disk and then used
+to reconstruct the object, even in a different Python process.
 This creates many constraints on the data they can serialize, as well as the speed of reconstruction.
 
-`duper`, however, is not constrained by these problems. It only needs to guarantee that the object can be recreated within the same Python process, and it can use that to its advantage.
+`duper`, however, is not constrained by these problems. It only needs to guarantee that the object can be recreated
+within the same Python process, and it can use that to its advantage.
 
 #### Are there any drawbacks to this approach?
+
 Perhaps the only drawback is that it's non-trivial to implement.
 When it comes to using it, I can't see any fundamental drawbacks, only advantages.
 
-However, there are drawbacks to the current implementation. The approach itself boils down to getting a set of minimal instructions that will produce the needed object. But there are different ways to obtain this set of instructions. The fastest way would be to compile the instructions on the fly while deconstructing the object. However, for the sake of simplicity, I used a slower approach of building an AST that compiles to the desired bytecode. Removing this intermediate step should increase the performance of the initial construction by 20-50 times.
+However, there are drawbacks to the current implementation. The approach itself boils down to getting a set of minimal
+instructions that will produce the needed object. But there are different ways to obtain this set of instructions. The
+fastest way would be to compile the instructions on the fly while deconstructing the object. However, for the sake of
+simplicity, I used a slower approach of building an AST that compiles to the desired bytecode. Removing this
+intermediate step should increase the performance of the initial construction by 20-50 times.
 
 #### Is this a drop-in replacement for `deepcopy`?
-Not quite yet, but it aims to be. 
+
+Not quite yet, but it aims to be.
 
 #### How should I use it?
+
 `duper` shines when you need to make multiple copies of the same object.
 
 Here's an example where duper can help the most:
+
 ```python
 import copy
+
+
 data = {"a": 1, "b": [[1, 2, 3], [4, 5, 6]]}
 copies = [copy.deepcopy(data) for _ in range(10000)]
 ```
-By pre-compiling instructions in a separate one-time step, we eliminate all of the overhead from the copying phase: 
+
+By pre-compiling instructions in a separate one-time step, we eliminate all of the overhead from the copying phase:
+
 ```python
 import duper
+
+
 data = {"a": 1, "b": [[1, 2, 3], [4, 5, 6]]}
 reconstruct_data = duper.deepdups(data)
 copies = [reconstruct_data() for _ in range(10000)]
 ```
 
 #### Is it production ready?
+
 [Hell no!](#-project-is-in-poc-state)
 
 ### 🚧 Project is in a PoC state
+
 Current priorities
+
 - [x] Support for immutable types
 - [x] Support for builtin types
 - [x] Support for arbitrary types
-- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not respected)
-- [ ] Support for recursive structures
-- [ ] Find quirky corner cases
+- [x] Partial support for `__deepcopy__` and `__copy__` overrides (memo is not fully supported, there are safeguards)
+- [x] Support for recursive structures
+- [] Find quirky corner cases
 - [ ] Make initial construction faster (potentially 30-50 times faster than current implementation)
 - [ ] Support memo in `__deepcopy__` and `__copy__` overrides
 
-The project will be ready for release when `duper.deepdups(x)()` behaves the same as `copy.deepcopy()` and is at least as fast, if not faster. 
+The project will be ready for release when `duper.deepdups(x)()` behaves the same as `copy.deepcopy()` and is at least
+as fast, if not faster. 
